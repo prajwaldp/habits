@@ -1,8 +1,9 @@
-# Habits
+# Habits & Thoughts
 
-A tiny, front-end-only habit tracker. No server, no account, no build step: three static files.
+A tiny, front-end-only journal and habit tracker. No server, no account, no build step: three static files.
 
-- Add habits, each with its own colour and a goal: every day, or a number of times a week
+- **Thoughts** (the start page): jot down thoughts with `#tags`. Each one is timestamped and they flow down one page per day. Use the arrows to page back through earlier days; tap a recent tag to add it
+- **Habits**: add habits, each with its own colour and a goal: every day, or a number of times a week
 - The home page shows the last 7 days for each habit; tap a day to check it off or undo it
 - Tap a habit's name to see its full history grid (tap any square to fix a past day), and to rename, recolour, change the goal or delete it
 - Streaks: days in a row for daily habits, weeks in a row that hit the target for weekly habits
@@ -49,5 +50,7 @@ Tip: on iPhone, open the site in Safari and use **Share → Add to Home Screen**
   ]
 }
 ```
+
+Thoughts are saved as `"thoughts": [{ "id", "ts": "<ISO time>", "text" }]` in the same backup file.
 
 `goal` is `{ "per": "day" }` or `{ "per": "week", "times": 1-6 }`. Older backups without `goal` import as daily.

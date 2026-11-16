@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#0c0c0e" media="(prefers-color-scheme: dark)">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <title>Habits</title>
+  <title>Habits &amp; Thoughts</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%23ff5a5f'/><path d='M18 33l9 9 19-20' stroke='white' stroke-width='7' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,7 +18,10 @@
   <header class="top">
     <div>
       <p class="date" id="today-label"></p>
-      <h1>Habits</h1>
+      <nav class="tabs" role="tablist" aria-label="Sections">
+        <button class="tab" role="tab" id="tab-thoughts" data-tab="thoughts" aria-selected="true">Thoughts</button>
+        <button class="tab" role="tab" id="tab-habits" data-tab="habits" aria-selected="false">Habits</button>
+      </nav>
     </div>
     <div class="top-actions">
       <button class="icon-btn" id="theme-btn" aria-label="Toggle theme" title="Theme"></button>
@@ -28,6 +31,34 @@
     </div>
   </header>
 
+  <!-- Thoughts: one page per day -->
+  <section id="thoughts-view" class="view" role="tabpanel" aria-labelledby="tab-thoughts">
+    <div class="pager">
+      <button class="icon-btn" id="day-prev" aria-label="Previous day"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <div class="pager-mid">
+        <h2 id="day-title">Today</h2>
+        <p id="day-sub"></p>
+      </div>
+      <button class="icon-btn" id="day-next" aria-label="Next day"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
+    </div>
+    <ol class="thoughts" id="thought-list"></ol>
+    <div class="thoughts-empty" id="thoughts-empty" hidden></div>
+    <button class="back-today" id="back-today" hidden>Back to today</button>
+  </section>
+
+  <form class="composer" id="composer" autocomplete="off">
+    <div class="composer-inner">
+      <div class="tag-row" id="tag-row"></div>
+      <div class="composer-box">
+        <textarea id="thought-input" rows="1" maxlength="2000" placeholder="What's on your mind? Add #tags"></textarea>
+        <button type="submit" class="send" id="thought-send" aria-label="Add thought" disabled>
+          <svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+        </button>
+      </div>
+    </div>
+  </form>
+
+  <section id="habits-view" class="view" role="tabpanel" aria-labelledby="tab-habits" hidden>
   <main id="list" class="list"></main>
 
   <section id="empty" class="empty" hidden>
@@ -36,6 +67,7 @@
     </div>
     <h2>No habits yet</h2>
     <p>Add something small you want to do every day, or a few times a week.</p>
+  </section>
   </section>
 
   <button class="fab" id="add-btn" aria-label="Add habit">

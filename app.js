@@ -40,8 +40,8 @@
   }
 
   function normalize(data) {
-    if (!data || !Array.isArray(data.habits)) throw new Error('No "habits" list found in file');
-    return data.habits.map((h) => {
+    if (!data || (!Array.isArray(data.habits) && !Array.isArray(data.thoughts))) throw new Error('This file has no habits or thoughts');
+    return (data.habits || []).map((h) => {
       if (!h || typeof h.name !== 'string') throw new Error('A habit is missing its name');
       const done = Array.isArray(h.done) ? h.done : Object.keys(h.days || {}).filter(k => h.days[k]);
       return {
@@ -61,11 +61,12 @@
       version: 2,
       exportedAt: new Date().toISOString(),
       habits: habits.map(h => ({ id: h.id, name: h.name, color: h.color, created: h.created, goal: h.goal, done: [...h.done].sort() })),
+      thoughts: typeof thoughts === 'undefined' ? [] : thoughts,
     };
   }
 
   function save() {
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(serialize())); }
+    try { const { thoughts: _t, ...data } = serialize(); localStorage.setItem(STORE_KEY, JSON.stringify(data)); }
     catch (e) { toast('Could not save. Storage may be full or blocked.'); }
   }
 
@@ -242,7 +243,13 @@
   // Roll over to a new day when the tab comes back (e.g. left open overnight)
   function checkDay() {
     const now = startOfDay(new Date());
-    if (keyOf(now) !== todayKey) { today = now; todayKey = keyOf(now); render(); }
+    if (keyOf(now) !== todayKey) {
+      const wasToday = typeof pageDay !== 'undefined' && keyOf(pageDay) === todayKey;
+      today = now; todayKey = keyOf(now);
+      if (wasToday) pageDay = today;
+      render();
+      if (typeof renderThoughts === 'function' && currentTab === 'thoughts') renderThoughts();
+    }
   }
   document.addEventListener('visibilitychange', () => { if (!document.hidden) checkDay(); });
   setInterval(checkDay, 60_000);
@@ -336,11 +343,127 @@
   document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => b.closest('dialog').close()));
   document.querySelectorAll('dialog').forEach(d => d.addEventListener('click', (e) => { if (e.target === d) d.close(); }));
 
+  // ---------- thoughts: one page per day ----------
+  const THOUGHTS_KEY = 'thoughts.v1';
+  const TAG_RE = /(^|\s)(#[\p{L}\p{N}_-]+)/gu;
+  let thoughts = loadThoughts();
+  let pageDay = today;
+
+  function normThoughts(list) {
+    if (!Array.isArray(list)) return [];
+    return list
+      .filter(t => t && typeof t.text === 'string' && !isNaN(new Date(t.ts)))
+      .map(t => ({ id: typeof t.id === 'string' && t.id ? t.id : uid(), ts: new Date(t.ts).toISOString(), text: t.text.slice(0, 2000) }))
+      .sort((a, b) => a.ts.localeCompare(b.ts));
+  }
+  function loadThoughts() {
+    try { return normThoughts(JSON.parse(localStorage.getItem(THOUGHTS_KEY) || '[]')); }
+    catch (e) { console.warn('Could not read saved thoughts', e); return []; }
+  }
+  function saveThoughts() {
+    try { localStorage.setItem(THOUGHTS_KEY, JSON.stringify(thoughts)); }
+    catch (e) { toast('Could not save. Storage may be full or blocked.'); }
+  }
+  const tagsOf = (text) => [...text.matchAll(TAG_RE)].map(m => m[2].toLowerCase());
+  const formatThought = (text) => esc(text).replace(TAG_RE, (m, pre, tag) => `${pre}<span class="tag">${tag}</span>`);
+
+  function recentTags() {
+    const seen = new Map();
+    for (let i = thoughts.length - 1; i >= 0 && seen.size < 12; i--) {
+      for (const t of tagsOf(thoughts[i].text)) if (!seen.has(t)) seen.set(t, true);
+    }
+    return [...seen.keys()];
+  }
+
+  function renderThoughts() {
+    const k = keyOf(pageDay);
+    const isToday = k === todayKey;
+    const yesterday = keyOf(addDays(today, -1)) === k;
+    $('#day-title').textContent = isToday ? 'Today' : yesterday ? 'Yesterday' : pageDay.toLocaleDateString(undefined, { weekday: 'long' });
+    $('#day-sub').textContent = pageDay.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: pageDay.getFullYear() === today.getFullYear() ? undefined : 'numeric' });
+    $('#day-next').disabled = isToday;
+    $('#back-today').hidden = isToday;
+    composer.hidden = !isToday || currentTab !== 'thoughts';
+
+    const items = thoughts.filter(t => keyOf(new Date(t.ts)) === k);
+    $('#thought-list').innerHTML = items.map(t => `
+      <li class="thought" data-id="${t.id}">
+        <time datetime="${t.ts}">${new Date(t.ts).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</time>
+        <p>${formatThought(t.text)}</p>
+        <button class="thought-del" aria-label="Delete thought"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </li>`).join('');
+    const empty = $('#thoughts-empty');
+    empty.hidden = items.length > 0;
+    empty.textContent = isToday ? 'Nothing written yet today. Start below.' : 'No thoughts on this day.';
+
+    $('#tag-row').innerHTML = recentTags().map(t => `<button type="button" class="tag-chip" data-tag="${esc(t)}">${esc(t)}</button>`).join('');
+  }
+
+  const composer = $('#composer');
+  const input = $('#thought-input');
+  function grow() {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 180) + 'px';
+    $('#thought-send').disabled = !input.value.trim();
+  }
+  input.addEventListener('input', grow);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); composer.requestSubmit(); }
+  });
+  composer.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    checkDay();
+    pageDay = today;
+    thoughts.push({ id: uid(), ts: new Date().toISOString(), text });
+    saveThoughts();
+    input.value = '';
+    grow();
+    renderThoughts();
+    const last = $('#thought-list').lastElementChild;
+    if (last) { last.classList.add('new'); last.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+  });
+  $('#tag-row').addEventListener('click', (e) => {
+    const chip = e.target.closest('.tag-chip');
+    if (!chip) return;
+    const v = input.value;
+    input.value = v + (v && !/\s$/.test(v) ? ' ' : '') + chip.dataset.tag + ' ';
+    grow();
+    input.focus();
+  });
+  $('#thought-list').addEventListener('click', async (e) => {
+    const del = e.target.closest('.thought-del');
+    if (!del) return;
+    const id = del.closest('.thought').dataset.id;
+    if (!(await ask('Delete this thought?', 'Delete'))) return;
+    thoughts = thoughts.filter(t => t.id !== id);
+    saveThoughts();
+    renderThoughts();
+  });
+  $('#day-prev').addEventListener('click', () => { pageDay = addDays(pageDay, -1); renderThoughts(); });
+  $('#day-next').addEventListener('click', () => { if (pageDay < today) { pageDay = addDays(pageDay, 1); renderThoughts(); } });
+  $('#back-today').addEventListener('click', () => { pageDay = today; renderThoughts(); });
+
+  // ---------- tabs (Thoughts is the start page) ----------
+  let currentTab = 'thoughts';
+  function showTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === tab));
+    $('#thoughts-view').hidden = tab !== 'thoughts';
+    $('#habits-view').hidden = tab !== 'habits';
+    $('#add-btn').hidden = tab !== 'habits';
+    document.body.dataset.tab = tab;
+    render();
+    renderThoughts();
+  }
+  document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+
   // ---------- export / import ----------
   const menuDialog = $('#menu-dialog');
   $('#menu-btn').addEventListener('click', () => {
     const total = habits.reduce((n, h) => n + h.done.size, 0);
-    $('#stats').textContent = `${habits.length} habit${habits.length === 1 ? '' : 's'} · ${total} check-in${total === 1 ? '' : 's'} saved`;
+    $('#stats').textContent = `${habits.length} habit${habits.length === 1 ? '' : 's'} · ${total} check-in${total === 1 ? '' : 's'} · ${thoughts.length} thought${thoughts.length === 1 ? '' : 's'} saved`;
     menuDialog.showModal();
   });
 
@@ -382,16 +505,21 @@
     e.target.value = '';
     if (!file) return;
     try {
-      const incoming = normalize(JSON.parse(await file.text()));
-      if (habits.length) {
+      const raw = JSON.parse(await file.text());
+      const incoming = normalize(raw);
+      const incomingThoughts = normThoughts(raw.thoughts);
+      if (habits.length || thoughts.length) {
         menuDialog.close();
-        if (!(await ask(`Replace your ${habits.length} current habit${habits.length === 1 ? '' : 's'} with the ${incoming.length} in this file?`, 'Replace'))) return;
+        const what = `${incoming.length} habit${incoming.length === 1 ? '' : 's'} and ${incomingThoughts.length} thought${incomingThoughts.length === 1 ? '' : 's'}`;
+        if (!(await ask(`Replace everything here with the ${what} in this file?`, 'Replace'))) return;
       }
       habits = incoming.map(h => ({ ...h, done: new Set(h.done) }));
+      thoughts = incomingThoughts;
       save();
-      render();
+      saveThoughts();
+      showTab(currentTab);
       menuDialog.close();
-      toast(`Imported ${habits.length} habit${habits.length === 1 ? '' : 's'}`);
+      toast(`Imported ${incoming.length} habit${incoming.length === 1 ? '' : 's'} and ${thoughts.length} thought${thoughts.length === 1 ? '' : 's'}`);
     } catch (err) {
       toast('Import failed: ' + (err.message || 'not a valid backup file'));
     }
@@ -432,5 +560,5 @@
     toastTimer = setTimeout(() => t.classList.remove('show'), 2000);
   }
 
-  render();
+  showTab('thoughts');
 })();
