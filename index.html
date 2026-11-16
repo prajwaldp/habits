@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f4f4f6" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0c0c0e" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>Habits</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%23ff5a5f'/><path d='M18 33l9 9 19-20' stroke='white' stroke-width='7' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Patrick+Hand&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div>
+      <p class="date" id="today-label"></p>
+      <h1>Habits</h1>
+    </div>
+    <div class="top-actions">
+      <button class="icon-btn" id="theme-btn" aria-label="Toggle theme" title="Theme"></button>
+      <button class="icon-btn" id="menu-btn" aria-label="Menu" title="Export / import">
+        <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main id="list" class="list"></main>
+
+  <section id="empty" class="empty" hidden>
+    <div class="empty-mark">
+      <svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+    </div>
+    <h2>No habits yet</h2>
+    <p>Add something small you want to do every day, or a few times a week.</p>
+  </section>
+
+  <button class="fab" id="add-btn" aria-label="Add habit">
+    <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
+
+  <!-- Add / edit habit sheet -->
+  <dialog id="habit-dialog" class="sheet">
+    <form method="dialog" id="habit-form">
+      <div class="sheet-head">
+        <button type="button" class="text-btn" data-close>Cancel</button>
+        <h2 id="habit-dialog-title">New habit</h2>
+        <button type="submit" class="text-btn strong" id="habit-save">Add</button>
+      </div>
+      <label class="field">
+        <span>Name</span>
+        <input id="habit-name" type="text" maxlength="40" placeholder="e.g. Read 10 pages" autocomplete="off" required>
+      </label>
+      <div class="field">
+        <span>Goal</span>
+        <div class="goal-box">
+          <div class="segmented" role="radiogroup" aria-label="Goal">
+            <button type="button" class="seg" id="goal-daily" role="radio" data-per="day">Every day</button>
+            <button type="button" class="seg" id="goal-weekly" role="radio" data-per="week">Times a week</button>
+          </div>
+          <div class="stepper" id="goal-stepper" hidden>
+            <button type="button" class="step-btn" id="goal-minus" aria-label="Fewer times">−</button>
+            <output id="goal-times">3</output>
+            <span class="step-unit" id="goal-unit">times a week</span>
+            <button type="button" class="step-btn" id="goal-plus" aria-label="More times">+</button>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <span>Colour</span>
+        <div class="swatches" id="swatches"></div>
+      </div>
+      <div class="field" id="history-field" hidden>
+        <span>History <em id="history-note">tap a square to change a day</em></span>
+        <div class="history-box"><div class="grid-wrap" id="history"><div class="months"></div><div class="grid" role="group" aria-label="History"></div></div></div>
+      </div>
+      <button type="button" class="danger-btn" id="habit-delete" hidden>Delete habit</button>
+    </form>
+  </dialog>
+
+  <!-- Menu sheet -->
+  <dialog id="menu-dialog" class="sheet">
+    <div class="sheet-head">
+      <span></span>
+      <h2>Data</h2>
+      <button type="button" class="text-btn strong" data-close>Done</button>
+    </div>
+    <p class="hint">Everything is stored only in this browser. Export a backup to move it to another device.</p>
+    <div class="menu-list">
+      <button class="menu-item" id="export-btn">
+        <span>Export to JSON</span>
+        <svg viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5M5 14v5a2 2 0 002 2h10a2 2 0 002-2v-5"/></svg>
+      </button>
+      <button class="menu-item" id="import-btn">
+        <span>Import from JSON</span>
+        <svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 14v5a2 2 0 002 2h10a2 2 0 002-2v-5"/></svg>
+      </button>
+      <button class="menu-item" id="copy-btn">
+        <span>Copy backup to clipboard</span>
+        <svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 012-2h9"/></svg>
+      </button>
+      <input type="file" id="import-file" accept="application/json,.json" hidden>
+    </div>
+    <p class="hint small" id="stats"></p>
+  </dialog>
+
+  <!-- Confirm sheet -->
+  <dialog id="confirm-dialog" class="sheet confirm">
+    <p id="confirm-msg"></p>
+    <button type="button" class="danger-btn" id="confirm-ok">Delete</button>
+    <button type="button" class="plain-btn" id="confirm-cancel">Cancel</button>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
