@@ -9,7 +9,7 @@ A tiny, front-end-only habit tracker. No server, no account, no build step: thre
 - Export / import a JSON backup (••• menu)
 - Light and dark mode follow your system; the half-circle button cycles System → Light → Dark
 
-Handwritten look uses the Permanent Marker and Patrick Hand fonts from Google Fonts.
+Uses the Montserrat font from Google Fonts.
 
 Data lives in your browser's `localStorage`, so it's per device and per browser. Export a backup to move it.
 
